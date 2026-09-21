@@ -80,7 +80,8 @@ import speech_recognition as sr
 import threading
 import time
 from core.commands import process_command
-from voice.tts import speak
+from voice.tts import speak, stop_speech
+from voice.vad import vad_detector, is_user_speaking
 from langdetect import detect,detect_langs, DetectorFactory
 
 DetectorFactory.seed = 0  # For consistent language detection results
@@ -125,6 +126,7 @@ def detect_language_smart(text):
 # 🔊 Normal talk button usage with language detection
 def listen_and_respond(output_text):
     try:
+        stop_speech()  # Interrupt any ongoing assistant speech
         with sr.Microphone() as source:
             recognizer.adjust_for_ambient_noise(source)
             output_text.insert("end", "🎤 Listening...\n")
