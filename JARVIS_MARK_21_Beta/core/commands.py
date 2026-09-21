@@ -10,6 +10,7 @@ from features.music import load_music_from, play_music, pause_music, resume_musi
 from voice.tts import speak
 from api.gemini import model, generate_agentic_response
 from core.memory import conversation_history, remember, recall,load_memory
+from core.vector_memory import add_to_vector_memory, get_rag_context
 from core.utils import type_and_speak_text,start_spinner, stop_spinner, update_spinner
 import string
 from features.reminders import add_reminder, add_natural_reminder
@@ -75,12 +76,15 @@ def process_command(command, output_text,language="en"):
     if len(conversation_history) > 20:
         conversation_history[:] = conversation_history[-20:]
 
+    # Retrieve RAG long-term memory context
+    rag_context = get_rag_context(command)
+
     # Create context(last 5 interactions)
     context = ""
     for chat in conversation_history[-5:]:  #limit context to last 5 exchanges
         context += f"User: {chat['user']}\nJarvis: {chat['jarvis']}\n"
-    #Build Full Prompt
-    full_prompt = context + f"User: {command}\nJarvis:"
+    #Build Full Prompt with RAG Memory Context
+    full_prompt = rag_context + context + f"User: {command}\nJarvis:"
     #Display user command to GUI
     output_text.insert("end", f"🗣 You said: {command}\n")
     output_text.see("end")
@@ -98,9 +102,10 @@ def process_command(command, output_text,language="en"):
         # 1. Save reply/conversation history in memory
         conversation_history[-1]["jarvis"] = reply
 
-        # 2. Add new conversation to log file
+        # 2. Add new conversation to log file & vector memory
         with open(CHAT_LOG_FILE, "a", encoding="utf-8") as file:
             file.write(f"You: {command}\nJarvis: {reply}\n\n")
+        add_to_vector_memory(f"User: {command} | Jarvis: {reply}", category="chat")
 
         # 3. Display reply in GUI
         type_and_speak_text(output_text, reply,language=language)  # types and speaks the reply in GUI
