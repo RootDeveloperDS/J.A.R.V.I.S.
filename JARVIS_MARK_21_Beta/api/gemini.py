@@ -1,6 +1,7 @@
 from dotenv import load_dotenv
 import os
 from core.agent_tools import AGENT_TOOLS, execute_tool_call
+from core.vision import get_screen_image, get_webcam_image
 
 try:
     import google.generativeai as genai
@@ -69,3 +70,23 @@ def generate_agentic_response(prompt: str) -> str:
             return res.text.strip()
         except Exception as err:
             return f"Sorry, I couldn't process your request: {err}"
+
+
+def generate_multimodal_vision_response(prompt: str, source: str = "screen") -> str:
+    """Capture screen or camera frame and send multimodal payload to Gemini Vision."""
+    if not GENAI_AVAILABLE:
+        return "Google Generative AI SDK is not installed. Please run 'pip install google-generativeai'."
+    if not GEMINI_API_KEY:
+        return "Gemini API key is not configured. Please set GEMINI_API_KEY in your .env file."
+
+    img = get_webcam_image() if source == "camera" else get_screen_image()
+    if not img:
+        return f"Could not capture {source} for visual analysis."
+
+    try:
+        vision_model = genai.GenerativeModel("gemini-2.0-flash")
+        print(f"[VISION] Sending {source} image to Gemini Multimodal Vision API...")
+        response = vision_model.generate_content([prompt, img])
+        return response.text.strip() if response.text else "Vision processing complete."
+    except Exception as e:
+        return f"Gemini Vision Error: {e}"

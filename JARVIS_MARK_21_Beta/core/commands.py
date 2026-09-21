@@ -8,7 +8,7 @@ from features.notes import add_note, delete_note, load_notes
 from features.reminders import add_reminder, load_reminders, save_reminders
 from features.music import load_music_from, play_music, pause_music, resume_music, stop_music, next_song, shuffle_music
 from voice.tts import speak
-from api.gemini import model, generate_agentic_response
+from api.gemini import model, generate_agentic_response, generate_multimodal_vision_response
 from core.memory import conversation_history, remember, recall,load_memory
 from core.vector_memory import add_to_vector_memory, get_rag_context
 from core.utils import type_and_speak_text,start_spinner, stop_spinner, update_spinner
@@ -85,10 +85,24 @@ def process_command(command, output_text,language="en"):
         context += f"User: {chat['user']}\nJarvis: {chat['jarvis']}\n"
     #Build Full Prompt with RAG Memory Context
     full_prompt = rag_context + context + f"User: {command}\nJarvis:"
-    #Display user command to GUI
-    output_text.insert("end", f"🗣 You said: {command}\n")
-    output_text.see("end")
-    output_text.update()  # Ensure GUI updates immediately
+    # Check for direct vision command triggers
+    if any(phrase in command for phrase in ["look at my screen", "what is on my screen", "debug my screen", "screen vision"]):
+        def task_screen():
+            output_text.after(0, lambda: start_spinner(output_text))
+            reply = generate_multimodal_vision_response(command, source="screen")
+            output_text.after(0, lambda: stop_spinner(output_text, reply))
+            output_text.after(0, lambda: lasttasks(command, reply, output_text, language))
+        threading.Thread(target=task_screen, daemon=True).start()
+        return
+
+    if any(phrase in command for phrase in ["look at camera", "webcam snapshot", "what do you see in camera"]):
+        def task_cam():
+            output_text.after(0, lambda: start_spinner(output_text))
+            reply = generate_multimodal_vision_response(command, source="camera")
+            output_text.after(0, lambda: stop_spinner(output_text, reply))
+            output_text.after(0, lambda: lasttasks(command, reply, output_text, language))
+        threading.Thread(target=task_cam, daemon=True).start()
+        return
 
     # Check if user command matches or handled by a plugin 
     for trigger, plugin in plugin_registry.items():

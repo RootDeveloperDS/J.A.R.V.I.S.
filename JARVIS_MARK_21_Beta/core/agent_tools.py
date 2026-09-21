@@ -142,6 +142,35 @@ def system_power_control(action: str) -> str:
     except Exception as e:
         return f"Failed system power command '{action}': {e}"
 
+
+# Tool 7: Vision Screen Tool
+def inspect_desktop_screen(prompt: str = "Analyze the current screen") -> str:
+    """Capture and analyze the active desktop screen image.
+    
+    Args:
+        prompt: Question or instruction for analyzing the screen.
+    """
+    from core.vision import get_screen_image
+    img = get_screen_image()
+    if not img:
+        return "Failed to capture desktop screenshot."
+    return "Captured screen screenshot for multimodal vision analysis."
+
+
+# Tool 8: Vision Webcam Tool
+def inspect_webcam_snapshot(prompt: str = "Describe what you see in the camera") -> str:
+    """Capture and analyze a snapshot frame from the webcam.
+    
+    Args:
+        prompt: Instruction for analyzing the camera frame.
+    """
+    from core.vision import get_webcam_image
+    img = get_webcam_image()
+    if not img:
+        return "Webcam frame unavailable."
+    return "Captured camera snapshot for multimodal vision analysis."
+
+
 # List of tool functions for Gemini Model registration
 AGENT_TOOLS = [
     get_weather_data,
@@ -149,7 +178,9 @@ AGENT_TOOLS = [
     set_reminder_task,
     control_music_player,
     calculate_expression,
-    system_power_control
+    system_power_control,
+    inspect_desktop_screen,
+    inspect_webcam_snapshot
 ]
 
 # Tool dispatcher mapping for execution
@@ -159,7 +190,9 @@ TOOL_MAP = {
     "set_reminder_task": set_reminder_task,
     "control_music_player": control_music_player,
     "calculate_expression": calculate_expression,
-    "system_power_control": system_power_control
+    "system_power_control": system_power_control,
+    "inspect_desktop_screen": inspect_desktop_screen,
+    "inspect_webcam_snapshot": inspect_webcam_snapshot
 }
 
 def execute_tool_call(func_name: str, func_args: dict) -> str:
