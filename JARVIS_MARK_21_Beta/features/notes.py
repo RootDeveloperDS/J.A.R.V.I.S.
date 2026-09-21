@@ -14,6 +14,7 @@ def load_notes():
             return []
 
 def save_notes(notes):
+    os.makedirs(os.path.dirname(NOTES_FILE), exist_ok=True)
     with open(NOTES_FILE, "w") as f:
         json.dump(notes, f, indent=4)
 

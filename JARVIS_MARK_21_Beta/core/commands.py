@@ -8,7 +8,7 @@ from features.notes import add_note, delete_note, load_notes
 from features.reminders import add_reminder, load_reminders, save_reminders
 from features.music import load_music_from, play_music, pause_music, resume_music, stop_music, next_song, shuffle_music
 from voice.tts import speak
-from api.gemini import model
+from api.gemini import model, generate_agentic_response
 from core.memory import conversation_history, remember, recall,load_memory
 from core.utils import type_and_speak_text,start_spinner, stop_spinner, update_spinner
 import string
@@ -490,15 +490,14 @@ def process_command(command, output_text,language="en"):
             output_text.after(0, lambda: start_spinner(output_text))
             # Start spinner safely in GUI
             
-            def task(prompt):
+            def task(p_text):
                 try:
                     nonlocal reply
                     # Modify Gemini prompt if Hindi
                     if language == "hi":
-                        prompt = "उत्तर हिंदी में दो:\n" + prompt    
-                    response = model.generate_content(prompt)
-                    print("Debug: Gemini response:", response.text.strip())  # Debug print
-                    reply = response.text.strip()
+                        p_text = "उत्तर हिंदी में दो:\n" + p_text    
+                    reply = generate_agentic_response(p_text)
+                    print("Debug: Gemini agent response:", reply)  # Debug print
                     
                 except Exception as e:
                     print("Gemini Error:", e)
@@ -510,14 +509,11 @@ def process_command(command, output_text,language="en"):
                             f.write(cmd.strip() + "\n")
                     log_unknown_command(command)
                 
-                
-                #stop_spinner(output_text, reply) # Spinner ends
-                #lasttasks(command,reply,output_text)  # Call lasttasks to handle reply and logging
                 output_text.after(0, lambda: stop_spinner(output_text, reply))
-                output_text.after(0, lambda: lasttasks(command, reply, output_text,language))
+                output_text.after(0, lambda: lasttasks(command, reply, output_text, language))
                 
 
-            threading.Thread(target=task(prompt), daemon=True).start()
+            threading.Thread(target=task, args=(prompt,), daemon=True).start()
             # stop the function here, as the reply will be handled in the thread
              
         # If we reach here, it means no known command matched, so we use Gemini to generate a response
