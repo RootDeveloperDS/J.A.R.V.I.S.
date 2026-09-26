@@ -1,9 +1,13 @@
 import os
 import json
 from datetime import datetime, timedelta
-import dateparser 
+try:
+    import dateparser
+except ImportError:
+    dateparser = None
 
 REMINDERS_FILE = os.path.join("DATA", "reminders.json")
+os.makedirs("DATA", exist_ok=True)
 
 #load existing reminders from JSON
 def load_reminders():
@@ -28,7 +32,8 @@ def add_reminder(text, delay_minutes):
     save_reminders(reminders)
 
 def add_natural_reminder(text): #new function to add reminders using natural language
-    # Example: "remind me to call mom tomorrow at 5"
+    if not dateparser:
+        return False, "dateparser library not installed."
     reminder = {
         "task": None,
         "time": None

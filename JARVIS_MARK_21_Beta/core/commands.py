@@ -8,8 +8,9 @@ from features.notes import add_note, delete_note, load_notes
 from features.reminders import add_reminder, load_reminders, save_reminders
 from features.music import load_music_from, play_music, pause_music, resume_music, stop_music, next_song, shuffle_music
 from voice.tts import speak
-from api.gemini import model
+from api.gemini import model, generate_agentic_response, generate_multimodal_vision_response
 from core.memory import conversation_history, remember, recall,load_memory
+from core.vector_memory import add_to_vector_memory, get_rag_context
 from core.utils import type_and_speak_text,start_spinner, stop_spinner, update_spinner
 import string
 from features.reminders import add_reminder, add_natural_reminder
@@ -78,16 +79,33 @@ def process_command(command, output_text,language="en"):
     if len(conversation_history) > 20:
         conversation_history[:] = conversation_history[-20:]
 
+    # Retrieve RAG long-term memory context
+    rag_context = get_rag_context(command)
+
     # Create context(last 5 interactions)
     context = ""
     for chat in conversation_history[-5:]:  #limit context to last 5 exchanges
         context += f"User: {chat['user']}\nJarvis: {chat['jarvis']}\n"
-    #Build Full Prompt
-    full_prompt = context + f"User: {command}\nJarvis:"
-    #Display user command to GUI
-    output_text.insert("end", f"🗣 You said: {command}\n")
-    output_text.see("end")
-    output_text.update()  # Ensure GUI updates immediately
+    #Build Full Prompt with RAG Memory Context
+    full_prompt = rag_context + context + f"User: {command}\nJarvis:"
+    # Check for direct vision command triggers
+    if any(phrase in command for phrase in ["look at my screen", "what is on my screen", "debug my screen", "screen vision"]):
+        def task_screen():
+            output_text.after(0, lambda: start_spinner(output_text))
+            reply = generate_multimodal_vision_response(command, source="screen")
+            output_text.after(0, lambda: stop_spinner(output_text, reply))
+            output_text.after(0, lambda: lasttasks(command, reply, output_text, language))
+        threading.Thread(target=task_screen, daemon=True).start()
+        return
+
+    if any(phrase in command for phrase in ["look at camera", "webcam snapshot", "what do you see in camera"]):
+        def task_cam():
+            output_text.after(0, lambda: start_spinner(output_text))
+            reply = generate_multimodal_vision_response(command, source="camera")
+            output_text.after(0, lambda: stop_spinner(output_text, reply))
+            output_text.after(0, lambda: lasttasks(command, reply, output_text, language))
+        threading.Thread(target=task_cam, daemon=True).start()
+        return
 
     # Check if user command matches or handled by a plugin 
     for trigger, plugin in plugin_registry.items():
@@ -101,9 +119,10 @@ def process_command(command, output_text,language="en"):
         # 1. Save reply/conversation history in memory
         conversation_history[-1]["jarvis"] = reply
 
-        # 2. Add new conversation to log file
+        # 2. Add new conversation to log file & vector memory
         with open(CHAT_LOG_FILE, "a", encoding="utf-8") as file:
             file.write(f"You: {command}\nJarvis: {reply}\n\n")
+        add_to_vector_memory(f"User: {command} | Jarvis: {reply}", category="chat")
 
         # 3. Display reply in GUI
         type_and_speak_text(output_text, reply,language=language)  # types and speaks the reply in GUI
@@ -523,15 +542,14 @@ def process_command(command, output_text,language="en"):
             output_text.after(0, lambda: start_spinner(output_text))
             # Start spinner safely in GUI
             
-            def task(prompt):
+            def task(p_text):
                 try:
                     nonlocal reply
                     # Modify Gemini prompt if Hindi
                     if language == "hi":
-                        prompt = "उत्तर हिंदी में दो:\n" + prompt    
-                    response = model.generate_content(prompt)
-                    print("Debug: Gemini response:", response.text.strip())  # Debug print
-                    reply = response.text.strip()
+                        p_text = "उत्तर हिंदी में दो:\n" + p_text    
+                    reply = generate_agentic_response(p_text)
+                    print("Debug: Gemini agent response:", reply)  # Debug print
                     
                 except Exception as e:
                     print("Gemini Error:", e)
@@ -543,14 +561,11 @@ def process_command(command, output_text,language="en"):
                             f.write(cmd.strip() + "\n")
                     log_unknown_command(command)
                 
-                
-                #stop_spinner(output_text, reply) # Spinner ends
-                #lasttasks(command,reply,output_text)  # Call lasttasks to handle reply and logging
                 output_text.after(0, lambda: stop_spinner(output_text, reply))
-                output_text.after(0, lambda: lasttasks(command, reply, output_text,language))
+                output_text.after(0, lambda: lasttasks(command, reply, output_text, language))
                 
 
-            threading.Thread(target=task(prompt), daemon=True).start()
+            threading.Thread(target=task, args=(prompt,), daemon=True).start()
             # stop the function here, as the reply will be handled in the thread
              
         # If we reach here, it means no known command matched, so we use Gemini to generate a response
