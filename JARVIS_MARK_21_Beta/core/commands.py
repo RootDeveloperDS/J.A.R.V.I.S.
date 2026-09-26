@@ -14,6 +14,9 @@ from core.vector_memory import add_to_vector_memory, get_rag_context
 from core.utils import type_and_speak_text,start_spinner, stop_spinner, update_spinner
 import string
 from features.reminders import add_reminder, add_natural_reminder
+from urllib.parse import quote_plus
+import psutil
+import pyautogui
 
 from core.plugin_loader import load_plugins
 plugin_registry = load_plugins()#to load all plugin triggers 
@@ -178,7 +181,26 @@ def process_command(command, output_text,language="en"):
 
 
     # Process Known Commands
-    if "open youtube" in command:
+
+    if "search google for" in command:
+            query = command.split("search google for", 1)[1].strip()
+
+            if query:
+                reply = f"Searching Google for {query}..."
+                webbrowser.open(f"https://www.google.com/search?q={quote_plus(query)}")
+            else:
+                reply = "Please tell me what you would like to search on Google"
+    
+    elif "search youtube for" in command:
+            query = command.split("search youtube for", 1)[1].strip()
+
+            if query:
+                reply = f"Searching YouTube for {query}..."
+                webbrowser.open(f"https://www.youtube.com/results?search_query={quote_plus(query)}")
+            else:
+                reply = "Please tell me what you would like to search on YouTube"
+
+    elif "open youtube" in command:
         reply = "Opening YouTube..."
         webbrowser.open("https://www.youtube.com")
 
@@ -491,16 +513,27 @@ def process_command(command, output_text,language="en"):
         reply = "Opening LinkedIn..."
         
         threading.Thread (target=lambda: webbrowser.open("https://www.linkedin.com"),daemon=True).start()
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+
+    elif "battery status" in command or "battery level" in command:
+        battery = psutil.sensors_battery()
+
+        if battery:
+            percent = battery.percent
+            plugged = "plugged in" if battery.power_plugged else "on battery power"
+            reply = f"System battery is at {percent}%, currently {plugged}."
+
+        else:
+            reply = "No battery detected on this system."
+
+    elif "system status" in command or "cpu usage" in command:
+        cpu = psutil.cpu_percent(interval=0.1)
+        ram = psutil.virtual_memory().percent
+        reply = f"CPU usage is at {cpu}%, and RAM usage is at {ram}%."
+
+    elif "toggle mute" in command or "mute volume" in command:
+        pyautogui.press("volumemute")
+        reply = "Toggled master volume mute."
+
     
        
     else:
@@ -570,7 +603,7 @@ def process_command(command, output_text,language="en"):
 
 
     if not handled_by_gemini:# If Gemini didn't handle it, we can safely call lasttasks
-        lasttasks(command, reply, output_text) # Calling the function at last to execute that tasks.
+        lasttasks(command, reply, output_text, language) # Calling the function at last to execute that tasks.
 
 
 

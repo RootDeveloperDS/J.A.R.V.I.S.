@@ -1,6 +1,8 @@
 # plugins/calculator.py
 
 import re
+import ast
+import operator
 from voice.tts import speak
 from core.base_plugin import BasePlugin
 
@@ -23,8 +25,43 @@ class CalculatorPlugin(BasePlugin):
             output_widget.see("end")
         speak(response)
 
+def safe_eval(expr):
+    """
+    Safely evaluate a mathematical expression using AST.
+    """
+    allowed_operators = {
+        ast.Add: operator.add,
+        ast.Sub: operator.sub,
+        ast.Mult: operator.mul,
+        ast.Div: operator.truediv,
+        ast.Mod: operator.mod,
+        ast.Pow: operator.pow,
+        ast.USub: operator.neg,
+        ast.UAdd: operator.pos
+    }
 
-# Legacy register fallback
+    def evaluate(node):
+        if isinstance(node, ast.Constant):
+            return node.value
+        elif isinstance(node, ast.BinOp):
+            op = type(node.op)
+            if op not in allowed_operators:
+                raise ValueError(f"Unsupported operator: {op}")
+            return allowed_operators[op](evaluate(node.left), evaluate(node.right))
+        elif isinstance(node, ast.UnaryOp):
+            op = type(node.op)
+            if op not in allowed_operators:
+                raise ValueError(f"Unsupported operator: {op}")
+            return allowed_operators[op](evaluate(node.operand))
+        else:
+            raise ValueError(f"Unsupported expression type: {type(node)}")
+
+    try:
+        tree = ast.parse(expr, mode='eval')
+        return evaluate(tree.body)
+    except Exception:
+        return None
+
 def register():
     return {
         "trigger": "calculator",
@@ -100,7 +137,26 @@ def perform_calculation(command):
     if match:
         try:
             clean_expr = "".join(match).strip()
-            return eval(clean_expr, {"__builtins__": None}, {})
-        except Exception:
+            return safe_eval(clean_expr)
+        except:
             return None
     return None
+
+if __name__ == "__main__":
+    # Tests for safe math evaluation
+    assert safe_eval("2 + 2") == 4
+    assert safe_eval("10 - 5") == 5
+    assert safe_eval("3 * 4") == 12
+    assert safe_eval("10 / 2") == 5
+    assert safe_eval("10 % 3") == 1
+    assert safe_eval("2 ** 3") == 8
+    assert safe_eval("(2 + 3) * 4") == 20
+    assert safe_eval("-5 + 10") == 5
+    assert safe_eval("+5") == 5
+
+    # Tests for malicious / invalid expressions
+    assert safe_eval("__import__('os').system('echo hacked')") is None
+    assert safe_eval("print('hello')") is None
+    assert safe_eval("open('test.txt', 'w')") is None
+
+    print("All calculator tests passed!")
