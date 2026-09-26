@@ -481,6 +481,13 @@ Contributions are welcome! Here's how you can help:
 4. **Push to the branch** (`git push origin feature/AmazingFeature`)
 5. **Open a Pull Request**
 
+### Security Guidelines & Issue Solving
+When contributing and addressing issues, especially security vulnerabilities (such as unsafe execution), please adhere to the following best practices to ensure the repository remains secure:
+
+- **Avoid Unsafe Execution**: Avoid using `eval()`, `exec()`, or `os.system()` with untrusted user input or natural language commands, as this allows arbitrary Python code execution.
+- **Use Safer Alternatives (Example)**: When evaluating mathematical or logical expressions (e.g., the issue in `JARVIS_MARK_21_Beta/plugins/calculator.py`), use safe parsing libraries like Python's `ast` module (`ast.parse`) to restrict evaluation to only specific operations instead of `eval()`.
+- **Add Tests**: Whenever solving an issue or fixing a vulnerability, ensure you provide tests for normal behavior alongside tests attempting invalid/malicious inputs to confirm the security patch is robust.
+
 ### Areas for Contribution
 - Bug fixes
 - New features
