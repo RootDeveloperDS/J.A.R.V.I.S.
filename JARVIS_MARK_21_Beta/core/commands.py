@@ -15,7 +15,8 @@ import string
 from features.reminders import add_reminder, add_natural_reminder
 from urllib.parse import quote_plus
 import psutil
-import pyautogui
+import re
+from pycaw.pycaw import AudioUtilities
 
 from core.plugin_loader import load_plugins
 plugin_registry = load_plugins()#to load all plugin triggers 
@@ -511,9 +512,27 @@ def process_command(command, output_text,language="en"):
         ram = psutil.virtual_memory().percent
         reply = f"CPU usage is at {cpu}%, and RAM usage is at {ram}%."
 
-    elif "toggle mute" in command or "mute volume" in command:
-        pyautogui.press("volumemute")
-        reply = "Toggled master volume mute."
+    elif "unmute" in command:
+        vol = AudioUtilities.GetSpeakers().EndpointVolume
+        vol.SetMute(False, None)
+        reply = "Audio unmuted."
+
+    elif "mute" in command:
+        vol = AudioUtilities.GetSpeakers().EndpointVolume
+        vol.SetMute(True, None)
+        reply = "Audio muted."
+
+    elif "volume to" in command or "set volume" in command:
+        numbers = re.findall(r"\d+", command)
+        if numbers:
+            level = int(numbers[0])
+            level = max(0, min(100, level))
+
+            vol = AudioUtilities.GetSpeakers().EndpointVolume
+            vol.SetMasterVolumeLevelScalar(level / 100, None)
+            reply = f"Volume set to {level}%."
+        else:
+            reply = "Please specify a percentage like volume to 50."
 
     
        
